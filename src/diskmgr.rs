@@ -125,7 +125,8 @@ impl DiskMgr {
 }
 
 pub fn run_diskmgr() -> Res<()> {
-    let mut diskmgr = DiskMgr::open_db("nano.db")?;
+    let name = "nano-diskmgr-test.db";
+    let mut diskmgr = DiskMgr::open_db(name)?;
     println!("diskmgr: {}", diskmgr.name);
     let pid0 = diskmgr.allocate_page()?;
     let pid1 = diskmgr.allocate_page()?;
@@ -151,6 +152,16 @@ pub fn run_diskmgr() -> Res<()> {
     diskmgr.close_db()?;
 
     // remove nano.db file
-    std::fs::remove_file("nano.db").unwrap();
+    std::fs::remove_file(name).unwrap();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diskmgr() {
+        run_diskmgr().unwrap();
+    }
 }

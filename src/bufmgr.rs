@@ -183,3 +183,13 @@ pub fn run_bufmgr() -> Res<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bufmgr() {
+        run_bufmgr().unwrap();
+    }
+}

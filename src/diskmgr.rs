@@ -58,11 +58,19 @@ impl DiskMgr {
     fn read_bitmap_page(&mut self) -> Res<Page> {
         let mut page = Page::new();
         // let mut buf = vec![0; PAGE_BYTE];
-        self.fp.seek(SeekFrom::Start(0))
+        self.fp.seek(SeekFrom::Start(BITMAP_PAGE_ID as u64 * PAGE_BYTE as u64))
         .and_then(|_| self.fp.read_exact(&mut page.get_data_mut()))
         .map_err(|e| Error::IoError(e))?;
         // page.set_data(&buf)?;
         Ok(page)        
+    }
+
+    fn write_bitmap_page(&mut self, page: &Page) -> Res<()> {
+        // let buf = page.get_data();
+        self.fp.seek(SeekFrom::Start(0))
+        .and_then(|_| self.fp.write_all(&page.get_data()))
+        .map_err(|e| Error::IoError(e))?;
+        Ok(())
     }
 
     pub fn read_page(&mut self, page_no: PageId) -> Res<Page> {
@@ -73,9 +81,9 @@ impl DiskMgr {
     }
 
     pub fn write_page(&mut self, page_no: PageId, page: &Page) -> Res<()> {
-        // if self.is_free_page(page_no)? {
-        //     return Err(Error::InvalidArg { msg: "not allocated page".to_string() });
-        // }
+        if self.is_free_page(page_no)? {
+            return Err(Error::InvalidArg { msg: "not allocated page".to_string() });
+        }
         // let buf = page.get_data();
         self.fp.seek(SeekFrom::Start((page_no * PAGE_BYTE) as u64))
         .and_then(|_| self.fp.write_all(&page.get_data()))
@@ -96,7 +104,7 @@ impl DiskMgr {
             return Ok(());
         }
         bitmap_page.set_byte_value(page_id, page_type)?;
-        self.write_page(BITMAP_PAGE_ID, &bitmap_page)?;
+        self.write_bitmap_page(&bitmap_page)?;
         Ok(())
     }
 

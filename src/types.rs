@@ -47,6 +47,7 @@ pub enum Error {
     IoError(std::io::Error),
     InvalidArg{ msg: String},
     NoFreePage,
+    PageNotFound { page_id: PageId, msg: String },
     // EmptyRecord,
     // PageMismatch,
     // RecordTypeMismatch,

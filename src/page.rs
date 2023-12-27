@@ -28,6 +28,10 @@ impl Page {
     //     Ok(())
     // }
 
+    // pub fn set_page(&mut self, other: &Page) -> Res<()> {
+    //     self.set_data(other.get_data())
+    // }
+
     pub fn get_int_value(&self, offset: usize) -> Res<i32> {
         if offset + 4 > PAGE_BYTE {
             return Err(Error::InvalidArg{ msg: format!("offset must be less than {}", PAGE_BYTE)});

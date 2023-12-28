@@ -129,6 +129,10 @@ impl BufMgr {
         Ok((page_id, page))
     }
 
+    pub fn is_free_page(&mut self, page_id: PageId) -> Res<bool> {
+        self.diskmgr.is_free_page(page_id)
+    }
+
     pub fn flush_page(&mut self, page_id: PageId) -> Res<()> {
         if let Some(idx) = self.get_frame_index(page_id) {
             let frame = self.buf_pool.get_mut(idx).unwrap();

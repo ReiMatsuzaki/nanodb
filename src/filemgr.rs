@@ -1,3 +1,8 @@
+pub mod heap_file;
+pub mod hfilemgr;
+
+pub use hfilemgr::*;
+
 use crate::page::PAGE_BYTE;
 
 use super::types::{Res, PageId, EntryNo, Error};
@@ -27,6 +32,15 @@ impl SlotNo {
 pub struct RecordId {
     pub page_id: PageId,
     pub slot_no: SlotNo,
+}
+
+impl RecordId {
+    pub fn new(page_id: PageId, slot_no: SlotNo) -> RecordId {
+        RecordId {
+            page_id,
+            slot_no,
+        }
+    }
 }
 
 pub struct FileMgr {

@@ -127,7 +127,7 @@ impl HeapFileScan {
         with_record_page(f, page_id, &hf.bufmgr)
     }
 
-    pub fn get_next(&mut self) -> Res<Option<[u8; PAGE_RECORD_BYTE]>> {
+    pub fn get_next(&mut self) -> Res<Option<(RecordId, [u8; PAGE_RECORD_BYTE])>> {
         let rid = match self.status {
             ScanStatus::Starting => {
                 if let Some(rid) = self.init_rid()? {
@@ -154,7 +154,7 @@ impl HeapFileScan {
             Some(rid) => {
                 let hf = self.heap_file.lock().unwrap();
                 let rec = hf.get_record(rid)?;
-                Ok(Some(rec))
+                Ok(Some((rid, rec)))
             }
         }
     }

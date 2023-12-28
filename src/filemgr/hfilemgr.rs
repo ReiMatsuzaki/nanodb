@@ -101,9 +101,13 @@ pub fn run_hfilemgr() -> Res<()> {
     let mut file_a = hfilemgr.create_file("file_a")?;
     println!("eno={:}", file_a.get_entry_no().value);
     let data = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let _ = file_a.insert_record(data)?;
+    for _ in 0..3 {
+        file_a.insert_record(data)?;
+    }
     let rid = file_a.insert_record(data)?;
-    file_a.insert_record(data)?;
+    for _ in 0..3 {
+        file_a.insert_record(data)?;
+    }    
     println!("rid=({}, {})", rid.page_id, rid.slot_no.value);
 
     let rec = file_a.get_record(rid)?;
@@ -112,18 +116,23 @@ pub fn run_hfilemgr() -> Res<()> {
     println!("delete record");
     file_a.delete_record(rid)?;
 
+    println!("try to get deleted one");
+    let a = file_a.get_record(rid);
+    assert!(a.is_err());
+
     println!("insert other data");
     let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     let rid = file_a.insert_record(data)?;
     println!("rid=({}, {})", rid.page_id, rid.slot_no.value);
     let rec = file_a.get_record(rid)?;
+    assert_eq!(3, rec[2]);
     println!("rec={:?}", rec);
 
     println!("print all");
     let mutex = Arc::new(Mutex::new(file_a));
     let mut it = HeapFileScan::new(mutex);
-    while let Some(rec) = it.get_next()?{
-        println!("{:?}", rec)
+    while let Some((rid, rec)) = it.get_next()?{
+        println!("({},{}): {:?}", rid.page_id, rid.slot_no.value, rec)
     }
 
     std::fs::remove_file(name).unwrap();

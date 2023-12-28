@@ -389,6 +389,15 @@ impl<'a> RecordPage<'a> {
         if slot_no.value >= num_slots {
             return Err(Error::InvalidArg{ msg: format!("RecordPage::get_slot : slot_no must be less than {}", num_slots)});
         }
+
+        if self.is_free_slot(slot_no)? {
+            return Err(Error::InvalidArg { 
+                msg: format!(
+                    "RecordPage::get_slot: try to get free slot. slot_no={}",
+                    slot_no.value
+                ) })
+        }
+
         let position = self.pos_slot(slot_no);
         let mut data = [0; PAGE_RECORD_BYTE];
         for i in 0..PAGE_RECORD_BYTE {

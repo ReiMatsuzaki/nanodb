@@ -42,6 +42,17 @@ pub type PageId = usize;
 //     Varchar(usize),
 // }
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub struct EntryNo {
+    pub value: usize,
+}
+impl EntryNo {
+    pub fn new(value: usize) -> Self {
+        Self { value }
+    }
+
+}
+
 #[derive(Debug)]
 pub enum Error {
     IoError(std::io::Error),

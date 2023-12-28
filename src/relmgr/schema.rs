@@ -2,7 +2,7 @@ pub struct Schema {
     names: Vec<String>,
     types: Vec<AttributeType>,
     offsets: Vec<usize>,
-    lengths: Vec<usize>,
+    // lengths: Vec<usize>,
 }
 
 impl Schema {
@@ -22,8 +22,28 @@ impl Schema {
             names,
             types,
             offsets,
-            lengths,
+            // lengths,
         }
+    }
+
+    pub fn get_offset(&self, fno: usize) -> Option<&usize> {
+        self.offsets.get(fno)
+    }
+
+    pub fn get_type(&self, fno: usize) -> Option<&AttributeType> {
+        self.types.get(fno)
+    }
+
+    // pub fn get_length(&self, fno: usize) -> Option<&usize> {
+    //     self.lengths.get(fno)
+    // }
+
+    pub fn get_name(&self, fno: usize) -> Option<&String> {
+        self.names.get(fno)
+    }
+
+    pub fn len(&self) -> usize {
+        self.names.len()
     }
 }
 

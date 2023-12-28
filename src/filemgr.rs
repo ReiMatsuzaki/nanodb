@@ -9,7 +9,7 @@ const HEADER_START_FILE_ENTRY: usize = 10;
 const HEADER_NAME_BYTE: usize = 20;
 const HEADER_FILE_ENTRY_BYTE: usize = 4 + 4 + HEADER_NAME_BYTE + 2;
 
-const PAGE_RECORD_BYTE: usize = 20;
+pub const PAGE_RECORD_BYTE: usize = 20;
 const PAGE_NEXT_PAGE_ID: usize = 0;
 const PAGE_PREV_PAGE_ID: usize = 4;
 const PAGE_RECORD_START: usize = 10;

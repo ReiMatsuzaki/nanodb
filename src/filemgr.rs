@@ -58,11 +58,10 @@ impl FileMgr {
     pub fn create_file(&mut self, name: &str) -> Res<EntryNo> {
         let (page_id, _) = self.bufmgr.create_page()?;
 
-        // FIXME: choose free-entry
-        let entry_no = EntryNo::new(0);
         let mut header_page = self.pin_header_page()?;
+        let entry_no = header_page.new_entry()?;
         header_page.set_head_free_page_id(entry_no, page_id)?;
-        header_page.set_head_full_page_id(entry_no, page_id)?;
+        header_page.set_head_full_page_id(entry_no, 0)?;
         header_page.set_name(entry_no, name)?;
         self.bufmgr.unpin_page(self.header_page_id)?;
 
@@ -203,6 +202,18 @@ pub struct HeaderPage<'a> { page: &'a mut Page }
 impl<'a> HeaderPage<'a> {
     pub fn new(page: &'a mut Page) -> Self {
         Self { page }
+    }
+
+    fn new_entry(&mut self) -> Res<EntryNo> {
+        let mut eno = 0;
+        while eno < 10 {
+            let page_id = self.get_head_free_page_id(EntryNo::new(eno))?;
+            if page_id == 0 {
+                return Ok(EntryNo::new(eno));
+            }
+            eno += 1;
+        }
+        Err(Error::InvalidArg { msg: "FileMgr::create_file: too much entry".to_string() })
     }
 
     fn pos_head_free_page_id(&self, entry_no: EntryNo) -> usize {

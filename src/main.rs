@@ -3,10 +3,12 @@ mod page;
 mod diskmgr;
 mod bufmgr;
 mod filemgr;
+mod relmgr;
 
 use crate::diskmgr::run_diskmgr;
 use crate::bufmgr::run_bufmgr;
 use crate::filemgr::run_filemgr;
+// use crate::relmgr::run_relmgr;
 
 fn main() {
     let i = 2;

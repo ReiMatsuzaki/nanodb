@@ -1,11 +1,13 @@
 use crate::page::PAGE_BYTE;
 
 use super::types::{Res, PageId, EntryNo, Error};
+use super::page::Page;
 use super::diskmgr::DiskMgr;
 use super::bufmgr::BufMgr;
 
 const HEADER_START_FILE_ENTRY: usize = 10;
-const HEADER_FILE_ENTRY_BYTE: usize = 4 + 4 + 20 + 2;
+const HEADER_NAME_BYTE: usize = 20;
+const HEADER_FILE_ENTRY_BYTE: usize = 4 + 4 + HEADER_NAME_BYTE + 2;
 
 const PAGE_RECORD_BYTE: usize = 20;
 const PAGE_NEXT_PAGE_ID: usize = 0;
@@ -43,23 +45,29 @@ impl FileMgr {
         Ok(mgr)
     }
 
+    fn pin_header_page(&mut self) -> Res<HeaderPage> {
+        let header_page = self.bufmgr.pin_page(self.header_page_id)?;
+        Ok(HeaderPage::new(header_page))
+    }
+
     pub fn create_file(&mut self, name: &str) -> Res<EntryNo> {
         let (page_id, _) = self.bufmgr.create_page()?;
 
-        let entry_no = 0;
-        let position = HEADER_START_FILE_ENTRY + entry_no * HEADER_FILE_ENTRY_BYTE;
-        let header_page = self.bufmgr.pin_page(self.header_page_id)?;
-        header_page.set_int_value(position, page_id as i32)?; // for free-page
-        header_page.set_int_value(position+4, 0 as i32)?; // for full-page
-        header_page.set_varchar_value(position + 8, name)?;
+        // FIXME: choose free-entry
+        let entry_no = EntryNo::new(0);
+        // let position = HEADER_START_FILE_ENTRY + entry_no * HEADER_FILE_ENTRY_BYTE;
+        // let header_page = self.bufmgr.pin_page(self.header_page_id)?;
+        // let mut header_page = HeaderPage::new(header_page);
+        let mut header_page = self.pin_header_page()?;
+        header_page.set_head_free_page_id(entry_no, page_id)?;
+        header_page.set_head_full_page_id(entry_no, page_id)?;
+        header_page.set_name(entry_no, name)?;
         self.bufmgr.unpin_page(self.header_page_id)?;
-        Ok(EntryNo::new(entry_no))
+        Ok(entry_no)
     }
 
     pub fn insert_record(&mut self, entry_no: EntryNo, data: [u8; PAGE_RECORD_BYTE]) -> Res<()> {
-        let position = HEADER_START_FILE_ENTRY + entry_no.value * HEADER_FILE_ENTRY_BYTE;
-        let header_page = self.bufmgr.pin_page(self.header_page_id)?;
-        let page_id = header_page.get_int_value(position+0)? as PageId;
+        let page_id = self.first_page_id(entry_no)?;
         let page = self.bufmgr.pin_page(page_id)?;
 
         let num_slots = page.get_int_value(PAGE_BYTE - 4)? as usize;
@@ -106,13 +114,10 @@ impl FileMgr {
     }
 
     fn first_page_id(&mut self, entry_no: EntryNo) -> Res<PageId> {
-        let position = HEADER_START_FILE_ENTRY + entry_no.value * HEADER_FILE_ENTRY_BYTE;
-        let header_page = self.bufmgr.pin_page(self.header_page_id)?;
-        let page_id = header_page.get_int_value(position+0)? as PageId;
+        let mut header_page = self.pin_header_page()?;
+        let page_id = header_page.get_head_free_page_id(entry_no)?;
         self.bufmgr.unpin_page(self.header_page_id)?;
         Ok(page_id)
-        // let page = self.bufmgr.pin_page(page_id)?;
-        // Ok(page)
     }
 
     pub fn print_file(&mut self, entry_no: EntryNo) -> Res<()> {
@@ -205,6 +210,65 @@ impl FileMgr {
     }
 }
 
+pub struct HeaderPage<'a> { page: &'a mut Page }
+
+impl<'a> HeaderPage<'a> {
+    pub fn new(page: &'a mut Page) -> Self {
+        Self { page }
+    }
+
+    fn pos_head_free_page_id(&self, entry_no: EntryNo) -> usize {
+        HEADER_START_FILE_ENTRY + entry_no.value * HEADER_FILE_ENTRY_BYTE        
+    }
+
+    pub fn set_head_free_page_id(&mut self, entry_no: EntryNo, page_id: PageId) -> Res<()> {
+        let position = self.pos_head_free_page_id(entry_no);
+        self.page.set_int_value(position, page_id as i32)?; // for free-page
+        Ok(())
+    }
+
+    pub fn get_head_free_page_id(&mut self, entry_no: EntryNo) -> Res<PageId> {
+        let position = self.pos_head_free_page_id(entry_no);
+        let page_id = self.page.get_int_value(position)? as PageId;
+        Ok(page_id)
+    }
+
+    fn pos_head_full_page_id(&self, entry_no: EntryNo) -> usize {
+        self.pos_head_free_page_id(entry_no) + 4
+    }
+
+    pub fn set_head_full_page_id(&mut self, entry_no: EntryNo, page_id: PageId) -> Res<()> {
+        let position = self.pos_head_full_page_id(entry_no);
+        self.page.set_int_value(position, page_id as i32)?; // for free-page
+        Ok(())
+    }
+
+    pub fn get_head_full_page_id(&mut self, entry_no: EntryNo) -> Res<PageId> {
+        let position = self.pos_head_full_page_id(entry_no);
+        let page_id = self.page.get_int_value(position)? as PageId;
+        Ok(page_id)
+    }    
+
+    fn pos_name(&self, entry_no: EntryNo) -> usize {
+        self.pos_head_free_page_id(entry_no) + 8
+    }
+
+    pub fn set_name(&mut self, entry_no: EntryNo, name: &str) -> Res<()> {
+        if name.len() > HEADER_NAME_BYTE {
+            return Err(Error::InvalidArg{ msg: format!("HeaderPage::set_name : name length must be less than {}", HEADER_NAME_BYTE)});
+        }
+        let position = self.pos_name(entry_no);
+        self.page.set_varchar_value(position, &name)?;
+        Ok(())
+    }
+
+    pub fn get_name(&mut self, entry_no: EntryNo) -> Res<String> {
+        let position = self.pos_name(entry_no);
+        let name = self.page.get_varchar_value(position, 20)?;
+        Ok(name)
+    }
+}
+
 pub fn run_filemgr() -> Res<()> {
     let name = "nano-filemgr.db";
     let diskmgr = DiskMgr::open_db(name)?;
@@ -253,4 +317,14 @@ pub fn run_filemgr() -> Res<()> {
 
     std::fs::remove_file(name).unwrap();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_filemgr() {
+        run_filemgr().unwrap();
+    }
 }

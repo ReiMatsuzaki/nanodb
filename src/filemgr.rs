@@ -11,7 +11,7 @@ const HEADER_FILE_ENTRY_BYTE: usize = 4 + 4 + HEADER_NAME_BYTE + 2;
 
 const PAGE_RECORD_BYTE: usize = 20;
 const PAGE_NEXT_PAGE_ID: usize = 0;
-// const PAGE_PREV_PAGE_ID: usize = 4;
+const PAGE_PREV_PAGE_ID: usize = 4;
 const PAGE_RECORD_START: usize = 10;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -60,23 +60,34 @@ impl FileMgr {
 
         // FIXME: choose free-entry
         let entry_no = EntryNo::new(0);
-        // let position = HEADER_START_FILE_ENTRY + entry_no * HEADER_FILE_ENTRY_BYTE;
-        // let header_page = self.bufmgr.pin_page(self.header_page_id)?;
-        // let mut header_page = HeaderPage::new(header_page);
         let mut header_page = self.pin_header_page()?;
         header_page.set_head_free_page_id(entry_no, page_id)?;
         header_page.set_head_full_page_id(entry_no, page_id)?;
         header_page.set_name(entry_no, name)?;
         self.bufmgr.unpin_page(self.header_page_id)?;
+
+        // FIXME: summarize as new page procedure
+        let hpid = self.header_page_id;
+        let mut first_page = self.pin_record_page(page_id)?;
+        first_page.set_next_page_id(0)?; // set invalid page id
+        first_page.set_prev_page_id(hpid)?;
+
         Ok(entry_no)
     }
 
     pub fn insert_record(&mut self, entry_no: EntryNo, data: [u8; PAGE_RECORD_BYTE]) -> Res<()> {
         let page_id = self.first_page_id(entry_no)?;
+        self.insert_record_in_page(page_id, data)
+    }
+
+    fn insert_record_in_page(&mut self, page_id: PageId, data: [u8; PAGE_RECORD_BYTE]) -> Res<()> {
+        if page_id == 0 {
+            return Err(Error::NoFreePage);
+        }
+
         let mut page = self.pin_record_page(page_id)?;
- 
         let num_slots = page.get_num_slots()?;
-        println!("capacity={}, num_slots={}", page.capasity(), num_slots);
+        // println!("capacity={}, num_slots={}", page.capasity(), num_slots);
         if page.capasity() == num_slots {
             // search free-page
             for i in 0..num_slots {
@@ -90,21 +101,41 @@ impl FileMgr {
                 }
             }
         } else {
-            // insert new record
+            // enough capasity, add new record
             page.add_slot(data)?;
             self.bufmgr.unpin_page(page_id)?;
             return Ok(())
         }
-        Err(Error::NoFreePage)
+
+        // explore next page
+        let next_page_id = page.get_next_page_id()?;
+        self.bufmgr.unpin_page(page_id)?;
+
+        if next_page_id > 1 {
+            // valid record page id
+            self.insert_record_in_page(next_page_id, data)
+        } else {
+            // next page is null, so create new page.
+            let (new_page_id, _) = self.bufmgr.create_page()?;
+
+            let mut page = self.pin_record_page(page_id)?;
+            page.set_next_page_id(new_page_id)?;
+            self.bufmgr.unpin_page(page_id)?;
+
+            let mut new_page = self.pin_record_page(new_page_id)?;
+            new_page.set_prev_page_id(page_id)?;
+            self.bufmgr.unpin_page(new_page_id)?;
+
+            self.insert_record_in_page(new_page_id, data)
+        }
+
+
+        // FIXME: move full page
     }
 
     pub fn get_record(&mut self, rid: RecordId) -> Res<[u8; PAGE_RECORD_BYTE]> {
-        let page = self.bufmgr.pin_page(rid.page_id)?;
-        let position = PAGE_RECORD_START + PAGE_RECORD_BYTE * rid.slot_no.value;
-        let mut data = [0; PAGE_RECORD_BYTE];
-        for i in 0..PAGE_RECORD_BYTE {
-            data[i] = page.get_byte_value(position + i)?;
-        }
+        let mut page = self.pin_record_page(rid.page_id)?;
+        let data = page.get_slot(rid.slot_no)?;
         self.bufmgr.unpin_page(rid.page_id)?;
         Ok(data)
     }
@@ -126,24 +157,12 @@ impl FileMgr {
         Ok(())
     }
 
-    pub fn delete_record(&mut self, page_id: PageId, slot_no: SlotNo) -> Res<()> {
-        let mut page = self.pin_record_page(page_id)?;
-        page.set_slot_bit(  slot_no, 0)?;
-        self.bufmgr.unpin_page(page_id)?;
+    pub fn delete_record(&mut self, rid: RecordId) -> Res<()> {
+        let mut page = self.pin_record_page(rid.page_id)?;
+        page.set_slot_bit(rid.slot_no, 0)?;
+        self.bufmgr.unpin_page(rid.page_id)?;
         Ok(())
     }
-    // pub fn destroy_file(&mut self, entry_no: EntryNo) -> Res<()> {
-    //     let start_file_entry = 10;
-    //     let file_entry_bytes = 8 + 20 + 2;
-    //     let position = START_FILE_ENTRY + entry_no.value * file_entry_bytes;
-    //     let mut header_page = self.bufmgr.pin_page(self.header_page_id)?;
-    //     let page_id = header_page.get_int_value(position)? as PageId;
-    //     self.bufmgr.free_page(page_id)?;
-    //     header_page.set_int_value(position, -1 as i32)?;
-    //     header_page.set_int_value(position+4, -1 as i32)?;
-    //     header_page.set_varchar_value(position + 8, "")?;
-    //     Ok(())
-    // }
 
     pub fn init_rid(&mut self, eno: EntryNo) -> Res<Option<RecordId>> {
         let page_id = self.first_page_id(eno)?;
@@ -266,14 +285,14 @@ impl<'a> RecordPage<'a> {
     }
 
     pub fn set_prev_page_id(&mut self, page_id: PageId) -> Res<()> {
-        self.page.set_int_value(PAGE_NEXT_PAGE_ID, page_id as i32)?;
+        self.page.set_int_value(PAGE_PREV_PAGE_ID, page_id as i32)?;
         Ok(())
     }
 
-    pub fn get_prev_page_id(&mut self) -> Res<PageId> {
-        let page_id = self.page.get_int_value(PAGE_NEXT_PAGE_ID)? as PageId;
-        Ok(page_id)
-    }
+    // pub fn get_prev_page_id(&mut self) -> Res<PageId> {
+    //     let page_id = self.page.get_int_value(PAGE_NEXT_PAGE_ID)? as PageId;
+    //     Ok(page_id)
+    // }
 
     pub fn capasity(&self) -> usize {
         // format
@@ -310,12 +329,16 @@ impl<'a> RecordPage<'a> {
         Ok(bit == 0)
     }
 
+    fn pos_slot(&self, slot_no: SlotNo) -> usize {
+        PAGE_RECORD_START + PAGE_RECORD_BYTE * slot_no.value
+    }
+
     pub fn set_slot(&mut self, slot_no: SlotNo, data: [u8; PAGE_RECORD_BYTE]) -> Res<()> {
         let num_slots = self.get_num_slots()?;
         if slot_no.value >= num_slots {
             return Err(Error::InvalidArg{ msg: format!("RecordPage::set_slot : slot_no must be less than {}", num_slots)});
         }
-        let position = PAGE_RECORD_START + PAGE_RECORD_BYTE * slot_no.value;
+        let position = self.pos_slot(slot_no);
         for i in 0..PAGE_RECORD_BYTE {
             self.page.set_byte_value(position + i, data[i])?;
         }
@@ -329,14 +352,24 @@ impl<'a> RecordPage<'a> {
             return Err(Error::InvalidArg{ msg: format!("RecordPage::add_slot : num_slots must be less than {}", self.capasity())});
         }
         let slot_no = SlotNo::new(num_slots);
-        // let position = PAGE_RECORD_START + PAGE_RECORD_BYTE * slot_no.value;
-        // for i in 0..PAGE_RECORD_BYTE {
-        //     self.page.set_byte_value(position + i, data[i])?;
-        // }
+
         self.set_num_slots(num_slots + 1)?;
         self.set_slot(slot_no, data)?;
         self.set_slot_bit(slot_no, 1)?;
         Ok(slot_no)
+    }
+
+    pub fn get_slot(&mut self, slot_no: SlotNo) -> Res<[u8; PAGE_RECORD_BYTE]> {
+        let num_slots = self.get_num_slots()?;
+        if slot_no.value >= num_slots {
+            return Err(Error::InvalidArg{ msg: format!("RecordPage::get_slot : slot_no must be less than {}", num_slots)});
+        }
+        let position = self.pos_slot(slot_no);
+        let mut data = [0; PAGE_RECORD_BYTE];
+        for i in 0..PAGE_RECORD_BYTE {
+            data[i] = self.page.get_byte_value(position + i)?;
+        }
+        Ok(data)
     }
 }
 
@@ -348,22 +381,16 @@ pub fn run_filemgr() -> Res<()> {
 
     let eno = filemgr.create_file("test")?;
     let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let num = 5;
+    let num = 12;
     for i in 0..num {
         println!("insert {}", i);
         filemgr.insert_record(eno, data)?;
     }
     println!("print all");
-    // filemgr.print_file(eno)?;
-    let mut rid = filemgr.init_rid(eno)?;
-    while let Some(next_rid) = rid {
-        let rec = filemgr.get_record(next_rid)?;
-        println!("{:}:{:} {:?}", next_rid.page_id, next_rid.slot_no.value, rec);
-        rid = filemgr.next_rid(next_rid)?;
-    }
+    filemgr.print_file(eno)?;
 
     println!("delete slot_no=3");
-    filemgr.delete_record(2, SlotNo::new(3))?;
+    filemgr.delete_record(RecordId {page_id: 3, slot_no: SlotNo::new(3)} )?;
 
     println!("print all again");
     filemgr.print_file(eno)?;
@@ -377,7 +404,7 @@ pub fn run_filemgr() -> Res<()> {
 
     let rec0 = filemgr.get_record(RecordId { page_id: 2, slot_no: SlotNo::new(0) })?;
     assert_eq!(rec0[2], 3);
-    let rec1 = filemgr.get_record(RecordId { page_id: 2, slot_no: SlotNo::new(3) })?;
+    let rec1 = filemgr.get_record(RecordId { page_id: 3, slot_no: SlotNo::new(3) })?;
     assert_eq!(rec1[2], 13);
     std::fs::remove_file(name).unwrap();
     Ok(())

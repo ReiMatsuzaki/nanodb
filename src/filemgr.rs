@@ -1,7 +1,9 @@
 pub mod heap_file;
+pub mod raw_file_scan;
 pub mod hfilemgr;
 
 pub use heap_file::*;
+pub use raw_file_scan::*;
 pub use hfilemgr::*;
 
 use crate::page::PAGE_BYTE;

@@ -130,7 +130,7 @@ pub fn run_hfilemgr() -> Res<()> {
 
     println!("print all");
     let mutex = Arc::new(Mutex::new(file_a));
-    let mut it = HeapFileScan::new(mutex);
+    let mut it = RawFileScan::new(mutex);
     while let Some((rid, rec)) = it.get_next()?{
         println!("({},{}): {:?}", rid.page_id, rid.slot_no.value, rec)
     }

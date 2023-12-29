@@ -3,16 +3,16 @@ use crate::{filemgr::*, types::*};
 use std::sync::{Arc, Mutex};
 
 use super::*;
-use crate::filemgr::{HeapFile, HeapFileScan};
+use crate::filemgr::{HeapFile, RawFileScan};
 
 pub struct FileScan {
-    raw_file_scan: HeapFileScan,
+    raw_file_scan: RawFileScan,
     schema: Schema,
 }
 
 impl FileScan {
     pub fn new(heap_file: Arc<Mutex<HeapFile>>, schema: Schema) -> FileScan {
-        let raw_file_scan = HeapFileScan::new(heap_file);
+        let raw_file_scan = RawFileScan::new(heap_file);
         FileScan {
             raw_file_scan,
             schema,

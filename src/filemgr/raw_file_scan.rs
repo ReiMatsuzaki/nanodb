@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::types::*;
 use super::{PAGE_RECORD_BYTE, RecordPage, SlotNo, RecordId, HeapFile};
 
-pub struct HeapFileScan {
+pub struct RawFileScan {
     heap_file: Arc<Mutex<HeapFile>>,
     status: ScanStatus,
 }
@@ -14,9 +14,9 @@ enum ScanStatus {
     Finished
 }
 
-impl HeapFileScan {
-    pub fn new(heap_file: Arc<Mutex<HeapFile>>) -> HeapFileScan {
-        HeapFileScan {
+impl RawFileScan {
+    pub fn new(heap_file: Arc<Mutex<HeapFile>>) -> RawFileScan {
+        RawFileScan {
             heap_file,
             status: ScanStatus::Starting,
         }

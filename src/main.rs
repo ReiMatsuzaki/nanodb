@@ -4,12 +4,12 @@ mod page;
 mod diskmgr;
 mod bufmgr;
 mod filemgr;
-mod relmgr;
+mod relop;
 
 use crate::diskmgr::run_diskmgr;
 use crate::bufmgr::run_bufmgr;
 use crate::filemgr::run_hfilemgr;
-use crate::relmgr::{run_relmgr, run_relmgr_projection};
+use crate::relop::{run_relmgr, run_relmgr_projection};
 
 fn main() {
     let i = 5;

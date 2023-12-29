@@ -17,21 +17,9 @@ impl<'a> Record<'a> {
         }        
     }
 
-    pub fn print(&self) {
-        let field_num = self.schema.len();
-        for fno in 0..field_num {
-            print!("{} : {:?}",
-                self.schema.get_name(fno).unwrap(),
-                self.schema.get_type(fno).unwrap(),
-            )
-            
-        }
-        println!("{:?}", self.data);
-    }
-
-    pub fn get_byte(&self, pos: usize) -> Option<&u8> {
-        self.data.get(pos)
-    }
+    // pub fn get_byte(&self, pos: usize) -> Option<&u8> {
+    //     self.data.get(pos)
+    // }
 
     pub fn get_int_field(&self, fno: usize) -> Option<i32> {
         match self.schema.get_type(fno) {

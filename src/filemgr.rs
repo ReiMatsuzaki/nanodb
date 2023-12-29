@@ -35,6 +35,12 @@ pub struct RecordId {
     pub slot_no: SlotNo,
 }
 
+impl std::fmt::Display for RecordId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.page_id, self.slot_no.value)
+    }
+}
+
 impl RecordId {
     pub fn new(page_id: PageId, slot_no: SlotNo) -> RecordId {
         RecordId {

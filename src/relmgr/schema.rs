@@ -62,3 +62,12 @@ impl AttributeType {
     }
 }
 
+impl std::fmt::Display for AttributeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let a = match self {
+            AttributeType::Int => "int",
+            AttributeType::Varchar(_) => "varchar",
+        };
+        write!(f, "{}", a)
+    }
+}

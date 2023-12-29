@@ -56,4 +56,32 @@ impl<'a> Record<'a> {
             _ => None
         }
     }
+
+    pub fn get_as_string(&self, fno: usize) -> Option<String> {
+        let ty = self.schema.get_type(fno)?;
+        match ty {
+            AttributeType::Int => {
+                let x = self.get_int_field(fno)?;
+                Some(format!("{}", x))
+            }
+            AttributeType::Varchar(_) => {
+                self.get_varchar_field(fno)
+            }
+        }        
+    }
+}
+
+impl<'a> std::fmt::Display for Record<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for fno in 0..self.schema.len() {
+            if fno > 0 {
+                write!(f, ",  ")?;
+            }
+            let name = self.schema.get_name(fno).unwrap();
+            let ty = self.schema.get_type(fno).unwrap();
+            let v = self.get_as_string(fno).unwrap();
+            write!(f, "{}({}): {}", name, ty, v)?
+        }
+        Ok(())
+    }
 }

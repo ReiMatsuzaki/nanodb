@@ -26,7 +26,7 @@ pub fn run_relmgr() -> Res<()> {
     let data = [4, 0, 0, 0, 75, 76, 77, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     for i in 0..15 {
         let rid = file0.insert_record(data)?;
-        println!("insert {}, ({}, {})", i, rid.page_id, rid.slot_no.value);
+        println!("insert {}, {}", i, rid);
     }
 
     let schema = Schema::new(vec![
@@ -37,11 +37,7 @@ pub fn run_relmgr() -> Res<()> {
     let file0 = Arc::new(Mutex::new(file0));
     let mut scan = FileScan::new(file0.clone(), schema);
     while let Some((rid, rec)) = scan.get_next()? {
-        println!("({}, {}): {}, {}", 
-                 rid.page_id, rid.slot_no.value,
-                 rec.get_int_field(0).unwrap(),
-                 rec.get_varchar_field(1).unwrap()
-                );
+        println!("{}: {}", rid, rec);
     }
 
     std::fs::remove_file(name).unwrap();

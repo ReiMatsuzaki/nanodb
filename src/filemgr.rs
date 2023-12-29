@@ -1,6 +1,7 @@
 pub mod heap_file;
 pub mod hfilemgr;
 
+pub use heap_file::*;
 pub use hfilemgr::*;
 
 use crate::page::PAGE_BYTE;

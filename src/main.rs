@@ -11,9 +11,10 @@ use crate::bufmgr::run_bufmgr;
 use crate::filemgr::run_hfilemgr;
 use crate::filemgr::run_filemgr;
 use crate::relmgr::run_relmgr;
+use crate::relmgr::run_relmgr_old;
 
 fn main() {
-    let i = 4;
+    let i = 5;
     println!("nanodb start");
     if i == 0 {
         run_diskmgr().unwrap();
@@ -22,8 +23,10 @@ fn main() {
     } else if i == 2 {
         run_filemgr().unwrap();
     } else if i == 3 {
-        run_relmgr().unwrap();
+        run_relmgr_old().unwrap();
     } else if i==4 {
         run_hfilemgr().unwrap();
+    } else if i==5 {
+        run_relmgr().unwrap();
     }
 }

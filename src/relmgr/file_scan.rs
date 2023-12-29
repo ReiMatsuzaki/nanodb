@@ -1,8 +1,34 @@
 use crate::{filemgr::*, types::*};
 
+use std::sync::{Arc, Mutex};
+
 use super::*;
+use crate::filemgr::{HeapFile, HeapFileScan};
 
 pub struct FileScan {
+    raw_file_scan: HeapFileScan,
+    schema: Schema,
+}
+
+impl FileScan {
+    pub fn new(heap_file: Arc<Mutex<HeapFile>>, schema: Schema) -> FileScan {
+        let raw_file_scan = HeapFileScan::new(heap_file);
+        FileScan {
+            raw_file_scan,
+            schema,
+        }
+    }
+
+    pub fn get_next(&mut self) -> Res<Option<(RecordId, Record)>> {
+        let res = self.raw_file_scan.get_next()?
+        .map(|(rid, data)| {
+            (rid, Record::new(data, &self.schema))
+        });
+        Ok(res)
+    }
+}
+
+pub struct OldFileScan {
     // FIXME: use reference
     filemgr: FileMgr,
     schema: Schema,
@@ -10,7 +36,7 @@ pub struct FileScan {
     rid: Option<RecordId>,
 }
 
-impl FileScan {
+impl OldFileScan {
     pub fn build(schema: Schema, filemgr: FileMgr, entry_no: EntryNo) -> Res<Self> {
         let mut filemgr = filemgr;
         let rid = filemgr.init_rid(entry_no)?;

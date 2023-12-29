@@ -56,7 +56,7 @@ impl HeapFile {
                 }
                 return Ok(None)
             } else {
-                // add new page
+                // add new slot
                 let slot_no = page.add_slot(data)?;
                 return Ok(Some(RecordId::new(page_id, slot_no)))
             }
@@ -78,10 +78,11 @@ impl HeapFile {
                     self.with_record_page(page_id, |page| {
                         page.set_next_page_id(new_page_id)
                     })?;
-                    self.with_record_page(new_page_id, |new_page| {
-                        new_page.set_prev_page_id(page_id)
+                    let slot_no = self.with_record_page(new_page_id, |new_page| {
+                        new_page.set_prev_page_id(page_id)?;
+                        new_page.add_slot(data)
                     })?;
-                    Ok(RecordId::new(new_page_id, SlotNo::new(0)))
+                    Ok(RecordId::new(new_page_id, slot_no))
                 }
             }
         }

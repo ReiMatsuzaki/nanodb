@@ -63,16 +63,19 @@ pub fn run_relmgr_projection() -> Res<()> {
     let mut filemgr = HFileMgr::build(bufmgr)?;
 
     let mut file0 = filemgr.create_file("file0")?;
-    let data = [4, 0, 0, 0, 75, 76, 77, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    for i in 0..2 {
-        let rid = file0.insert_record(data)?;
-        println!("insert {}, {}", i, rid);
-    }
-
     let schema = Schema::build(vec![
         ("id".to_string(), AttributeType::Int),
         ("name".to_string(), AttributeType::Varchar(3)),
     ]);
+    let mut rec = Record::new_zero(&schema);
+    rec.set_int_field(0, 4)?;
+    rec.set_varchar_field(1, &"KVM".to_string())?;
+    let data = rec.get_data();
+    // let data = [4, 0, 0, 0, 75, 76, 77, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for i in 0..2 {
+        let rid = file0.insert_record(*data)?;
+        println!("insert {}, {}", i, rid);
+    }
 
     let file0 = Arc::new(Mutex::new(file0));
     let file_scan = FileScan::new(file0.clone(), schema);
@@ -81,7 +84,7 @@ pub fn run_relmgr_projection() -> Res<()> {
    
     let (_, rec) = iterator.get_next()?.unwrap();
     assert_eq!(1, rec.get_field_len());
-    assert_eq!("KLM", rec.get_varchar_field(0).unwrap());
+    assert_eq!("KVM", rec.get_varchar_field(0).unwrap());
 
     while let Some((rid, rec)) = iterator.get_next()? {
         println!("{}: {}", rid, rec);

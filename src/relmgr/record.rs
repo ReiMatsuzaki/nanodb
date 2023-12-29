@@ -94,6 +94,9 @@ impl<'a> Record<'a> {
         }        
     }
 
+    pub fn get_data(&self) -> &[u8; PAGE_RECORD_BYTE] {
+        &self.data
+    }
 }
 
 impl<'a> std::fmt::Display for Record<'a> {

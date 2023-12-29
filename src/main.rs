@@ -9,7 +9,7 @@ mod relmgr;
 use crate::diskmgr::run_diskmgr;
 use crate::bufmgr::run_bufmgr;
 use crate::filemgr::run_hfilemgr;
-use crate::relmgr::run_relmgr;
+use crate::relmgr::{run_relmgr, run_relmgr_projection};
 
 fn main() {
     let i = 5;
@@ -22,5 +22,7 @@ fn main() {
         run_hfilemgr().unwrap();
     } else if i==5 {
         run_relmgr().unwrap();
+    } else if i==6 {
+        run_relmgr_projection().unwrap();
     }
 }

@@ -1,3 +1,6 @@
+use crate::converter::set_int_value;
+use crate::types::{Res, Error};
+
 use super::AttributeType;
 use super::schema::Schema;
 use super::super::filemgr::PAGE_RECORD_BYTE;
@@ -17,9 +20,29 @@ impl<'a> Record<'a> {
         }        
     }
 
+    pub fn new_zero(schema: &Schema) -> Record {
+        let data = [0; PAGE_RECORD_BYTE];
+        Self::new(data, schema)
+    }
     // pub fn get_byte(&self, pos: usize) -> Option<&u8> {
     //     self.data.get(pos)
     // }
+
+    pub fn get_field_len(&self) -> usize {
+        self.schema.len()
+    }
+
+    pub fn set_int_field(&mut self, fno: usize, v: i32) -> Res<()> {
+        match self.schema.get_type(fno) {
+            Some(AttributeType::Int) => {
+                let offset = *self.schema.get_offset(fno).unwrap();
+                set_int_value(&mut self.data, offset, v);
+                Ok(())
+            }
+            _ => Err(Error::InvalidArg { 
+                    msg: format!("Record::set_int_field: field is not int. fno={}", fno) })
+        }
+    }
 
     pub fn get_int_field(&self, fno: usize) -> Option<i32> {
         match self.schema.get_type(fno) {
@@ -29,6 +52,19 @@ impl<'a> Record<'a> {
                 Some(v)
             }
             _ => None
+        }
+    }
+
+    pub fn set_varchar_field(&mut self ,fno: usize, v: &String) -> Res<()> {
+        match self.schema.get_type(fno) {
+            Some(AttributeType::Varchar(n)) => {
+                let offset = *self.schema.get_offset(fno).unwrap();
+                let xs = v.as_bytes();
+                self.data[offset..offset+n].copy_from_slice(xs);
+                Ok(())
+            }
+            _ => Err(Error::InvalidArg { 
+                    msg: format!("Record::set_int_field: field is not int. fno={}", fno) })
         }
     }
 
@@ -57,6 +93,7 @@ impl<'a> Record<'a> {
             }
         }        
     }
+
 }
 
 impl<'a> std::fmt::Display for Record<'a> {

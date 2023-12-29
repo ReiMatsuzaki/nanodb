@@ -19,6 +19,14 @@ impl FileScan {
         }
     }
 
+    pub fn get_schema(&self) -> &Schema {
+        &self.schema
+    } 
+
+    pub fn get_field_len(&self) -> usize {
+        self.schema.len()
+    }
+
     pub fn get_next(&mut self) -> Res<Option<(RecordId, Record)>> {
         let res = self.raw_file_scan.get_next()?
         .map(|(rid, data)| {

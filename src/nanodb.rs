@@ -235,7 +235,6 @@ pub fn run_nanodb() -> Res<()> {
     let statement = SqlStatement::Select(statement);
     nanodb.execute_statement(statement)?;
 
-
     std::fs::remove_file(name).unwrap();
     Ok(())
 }

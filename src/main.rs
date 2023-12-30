@@ -13,7 +13,7 @@ use env_logger;
 use crate::diskmgr::run_diskmgr;
 use crate::bufmgr::run_bufmgr;
 use crate::filemgr::run_hfilemgr;
-use crate::relop::{run_relmgr, run_relmgr_projection};
+use crate::relop::{run_relmgr, run_relmgr_projection, run_merge_sort};
 use crate::nanodb::run_nanodb;
 
 fn main() {
@@ -31,6 +31,8 @@ fn main() {
         run_relmgr().unwrap();
     } else if i==6 {
         run_relmgr_projection().unwrap();
+    } else if i==7 {
+        run_merge_sort().unwrap();
     } else if i==10 {
         match run_nanodb() {
             Ok(_) => {},

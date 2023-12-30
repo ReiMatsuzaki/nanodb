@@ -209,6 +209,12 @@ impl<'a> RecordPage<'a> {
         Ok(())
     }
 
+    fn get_slot_bit(&mut self, slot_no: SlotNo) -> Res<u8> {
+        self.check_slot_no(slot_no)?;
+        let position = PAGE_BYTE - 5 - slot_no.value;
+        self.page.get_byte_value(position)
+    }
+
     pub fn is_free_slot(&mut self, slot_no: SlotNo) -> Res<bool> {
         let num_slots = self.get_num_slots()?;
         if slot_no.value >= num_slots {
@@ -269,6 +275,38 @@ impl<'a> RecordPage<'a> {
             data[i] = self.page.get_byte_value(position + i)?;
         }
         Ok(data)
+    }
+
+    pub fn swap_slot(&mut self, i: SlotNo, j: SlotNo) -> Res<()> {
+        log::debug!("RecordPage::swap_slot");
+        self.check_slot_no(i)?;
+        self.check_slot_no(j)?;
+
+        let tmp_bit = self.get_slot_bit(j)?;
+        let tmp_slot = self.get_slot(j)?;
+        let i_bit = self.get_slot_bit(i)?;
+        let i_slot = self.get_slot(i)?;
+        self.set_slot_bit(j, i_bit)?;
+        self.set_slot(j, i_slot)?;
+        self.set_slot_bit(i, tmp_bit)?;
+        self.set_slot(i, tmp_slot)?;
+
+        Ok(())
+    }
+
+    fn check_slot_no(&mut self, slot_no: SlotNo) -> Res<()> {
+        let num_slots = self.get_num_slots()?;
+        if slot_no.value >= num_slots {
+            return Err(Error::InvalidArg{ msg: format!("RecordPage::set_slot : slot_no must be less than {}", num_slots)});
+        }
+        Ok(())
+    }
+
+    pub fn free_all(&mut self) -> Res<()> {
+        for slot_no in 0..self.capasity() {
+            self.set_slot_bit(SlotNo::new(slot_no), 0)?
+        }
+        Ok(())
     }
 }
 

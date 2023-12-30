@@ -28,6 +28,16 @@ impl RawFileScan {
         hf.with_record_page(page_id, f)
     }
 
+    pub fn peer_next_rid(&mut self) -> Res<Option<RecordId>> {
+        match self.status {
+           ScanStatus::Starting => self.init_rid(),
+           ScanStatus::Finished => Ok(None),
+           ScanStatus::Scanning(rid) => {
+                self.next_rid(rid)
+           }
+        }
+    }
+
     pub fn get_next(&mut self) -> Res<Option<(RecordId, [u8; PAGE_RECORD_BYTE])>> {
         let rid = match self.status {
             ScanStatus::Starting => {
@@ -114,4 +124,43 @@ impl RawFileScan {
 
         
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{diskmgr::DiskMgr, bufmgr::BufMgr, filemgr::HFileMgr};
+
+    use super::*;
+
+    #[test]
+    fn test_merge_sort() -> Res<()> {
+        let name = "nano-raw-file-scan.db";
+        let diskmgr = DiskMgr::open_db(name)?;
+        let bufmgr = BufMgr::new(10, diskmgr);
+        let bufmgr = Arc::new(Mutex::new(bufmgr));
+        let mut filemgr = HFileMgr::build(bufmgr)?;
+    
+        let mut file = filemgr.create_file("file0")?;
+
+        for i in 0..10 {
+            let mut data = [0; PAGE_RECORD_BYTE];
+            data[1] = i;
+            file.insert_record(data)?;
+        }
+
+        let file = Arc::new(Mutex::new(file));
+        let mut scan = RawFileScan::new(file);
+        scan.get_next()?;
+        scan.get_next()?;
+        assert_eq!(2, scan.peer_next_rid()?.unwrap().slot_no.value);
+        assert_eq!(2, scan.get_next()?.unwrap().0.slot_no.value);
+        while let Some(x) = scan.peer_next_rid()? {
+            println!("{}", x);
+            scan.get_next()?;
+        }
+        Ok(())
+    }
+
 }

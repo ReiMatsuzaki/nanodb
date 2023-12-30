@@ -22,6 +22,14 @@ impl HFileMgr {
         Ok(mgr)
     }
 
+    pub fn build_default(db_name: &str) -> Res<Self> {
+        let diskmgr = DiskMgr::open_db(db_name)?;
+        let bufmgr = BufMgr::new(10, diskmgr);
+        let bufmgr = Arc::new(Mutex::new(bufmgr));
+        let filemgr = HFileMgr::build(bufmgr)?;
+        Ok(filemgr)
+    }
+
     fn with_header_page<F, T>(&self, f: F) -> Res<T>
     where F: FnOnce(&mut HeaderPage) -> Res<T> {
         with_header_page(f, &self.bufmgr)
@@ -106,6 +114,19 @@ where F: FnOnce(&mut RecordPage) -> Res<T> {
     res
 }
 
+// pub fn with_two_record_pages<F, T>(f: F, page_id_0: PageId, page_id_1: PageId, mutex: &Arc<Mutex<BufMgr>>) -> Res<T>
+// where F: FnOnce(&mut RecordPage, &mut RecordPage) -> Res<T> {
+//     let mut bufmgr = mutex.lock().unwrap();
+//     let p0 = bufmgr.pin_page(page_id_0)?;
+//     let p1 = bufmgr.pin_page(page_id_1)?;
+//     let mut page0 = RecordPage::new(p0);
+//     let mut page1 = RecordPage::new(p1);
+//     let res = f(&mut page0, &mut page1);
+//     bufmgr.unpin_page(page_id_0)?;
+//     bufmgr.unpin_page(page_id_1)?;
+//     res
+// }
+
 pub fn create_page(mutex: &Arc<Mutex<BufMgr>>) -> Res<PageId> {
     let mut bufmgr = mutex.lock().unwrap();
     let (page_id, _) = bufmgr.create_page()?;
@@ -114,10 +135,11 @@ pub fn create_page(mutex: &Arc<Mutex<BufMgr>>) -> Res<PageId> {
 
 pub fn run_hfilemgr() -> Res<()> {
     let name = "nano-hfilemgr.db";
-    let diskmgr = DiskMgr::open_db(name)?;
-    let bufmgr = BufMgr::new(10, diskmgr);
-    let bufmgr = Arc::new(Mutex::new(bufmgr));
-    let mut hfilemgr = HFileMgr::build(bufmgr)?;
+    // // let diskmgr = DiskMgr::open_db(name)?;
+    // // let bufmgr = BufMgr::new(10, diskmgr);
+    // // let bufmgr = Arc::new(Mutex::new(bufmgr));
+    // let mut hfilemgr = HFileMgr::build(bufmgr)?;
+    let mut hfilemgr = HFileMgr::build_default(name)?;
 
     println!("create heap file");
     let mut file_a = hfilemgr.create_file("file_a")?;

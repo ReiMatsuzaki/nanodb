@@ -27,6 +27,18 @@ impl HeapFile {
         with_record_page(f, page_id, &self.bufmgr)
     }
 
+    pub fn with_record_pages<F>(&self, f: F) -> Res<()> 
+    where F: FnOnce(PageId, &mut RecordPage) -> Res<()> + Copy {
+        let mut pid = self.get_header_free_page_id()?;
+        while pid > 0 {
+            pid = self.with_record_page(pid, |p| {
+                f(pid, p)?;
+                p.get_next_page_id()
+            })?;
+        }
+        Ok(())
+    }
+
     pub fn get_entry_no(&self) -> EntryNo { self.entry_no }
 
     pub fn insert_record(&mut self, data: [u8; PAGE_RECORD_BYTE]) -> Res<RecordId> {

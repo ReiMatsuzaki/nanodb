@@ -112,6 +112,25 @@ impl BufMgr {
         }
     }
 
+    // pub fn pin_two_pages(&mut self, pid0: PageId, pid1: PageId) -> Res<[&mut Page; 2]> {
+    //     let i0 = self.get_frame_index(pid0);
+    //     let i1 = self.get_frame_index(pid1);
+    //     match (i0, i1) {
+    //         (Some(i0), Some(i1)) => {
+    //             let ptr = self.buf_pool.as_mut_ptr();
+    //             let frames = unsafe {
+    //                 [&mut *ptr.add(i0), &mut *ptr.add(i1)]
+    //             };
+    //             for f in frames {
+    //                 f.pin();
+    //             }
+    //             let pages = [&mut frames[0].page, &mut frames[1].page];
+    //             Ok(pages)
+    //         },        
+    //         _ => panic!("one of pages is not found")
+    //     }
+    // }
+
     pub fn unpin_page(&mut self, page_id: PageId) -> Res<()> {
         match self.get_frame_index(page_id) {
             Some(idx) => {

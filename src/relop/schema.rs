@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Schema {
     names: Vec<String>,
     types: Vec<AttributeType>,
@@ -86,6 +86,18 @@ impl AttributeType {
             AttributeType::Varchar(length) => *length,
         }
     }
+
+    pub fn decode(s: &str, size: usize) -> Option<AttributeType> {
+        match s {
+            "int" => Some(AttributeType::Int),
+            "varchar" => Some(AttributeType::Varchar(size)),
+            _ => None,
+        }
+    }
+
+    // pub fn encode(&self) -> (String, usize) {
+    //     (format!("{}", self), self.get_size())
+    // }
 }
 
 impl std::fmt::Display for AttributeType {

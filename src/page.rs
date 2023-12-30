@@ -1,5 +1,6 @@
 use super::types::{Res, Error};
-pub const PAGE_BYTE: usize = 128; // each page has 64 bytes
+// pub const PAGE_BYTE: usize = 128; // each page has 64 bytes
+pub const PAGE_BYTE: usize = 1024;
 
 pub struct Page {
     data: [u8; PAGE_BYTE],

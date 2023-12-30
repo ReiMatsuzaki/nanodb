@@ -34,12 +34,18 @@ impl HFileMgr {
 
     fn create_page(&mut self) -> Res<PageId> {
         let mut bufmgr = self.bufmgr.lock().unwrap();
-        println!("create page");
         let (page_id, _) = bufmgr.create_page()?;
         Ok(page_id)
     }
 
     pub fn create_file(&mut self, name: &str) -> Res<HeapFile> {
+        if let Some(_) = self.find_file(name)? {
+            return Err(Error::InvalidArg { 
+                msg: format!(
+                    "HFileMgr::create_file: file already exists. name={}",
+                    name)
+            })
+        }
         let page_id = self.create_page()?;
 
         let entry_no = self.with_header_page(|header_page| {
@@ -60,6 +66,22 @@ impl HFileMgr {
 
         let bufmgr = self.bufmgr.clone();
         Ok(HeapFile::new(entry_no, bufmgr))
+    }
+
+    pub fn open(&mut self, name: &str) -> Res<HeapFile> {
+        match self.find_file(name)? {
+            None => self.create_file(name),
+            Some(entry_no) => {
+                let bufmgr = self.bufmgr.clone();
+                Ok(HeapFile::new(entry_no, bufmgr))
+            }
+        }
+    }
+
+    fn find_file(&mut self, name: &str) -> Res<Option<EntryNo>> {
+        self.with_header_page(|header_page| {
+            header_page.find(name)
+        })
     }
 }
 
@@ -100,7 +122,10 @@ pub fn run_hfilemgr() -> Res<()> {
     println!("create heap file");
     let mut file_a = hfilemgr.create_file("file_a")?;
     println!("eno={:}", file_a.get_entry_no().value);
-    let data = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let mut data: [u8; PAGE_RECORD_BYTE] = [0; PAGE_RECORD_BYTE];
+    for i in 0..10 {
+        data[i] = 10 + i as u8 + 1;
+    }
     for _ in 0..3 {
         file_a.insert_record(data)?;
     }
@@ -121,7 +146,10 @@ pub fn run_hfilemgr() -> Res<()> {
     assert!(a.is_err());
 
     println!("insert other data");
-    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let mut data: [u8; PAGE_RECORD_BYTE] = [0; PAGE_RECORD_BYTE];
+    for i in 0..10 {
+        data[i] = i as u8 + 1;
+    }
     let rid = file_a.insert_record(data)?;
     println!("rid=({}, {})", rid.page_id, rid.slot_no.value);
     let rec = file_a.get_record(rid)?;

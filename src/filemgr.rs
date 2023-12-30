@@ -16,7 +16,7 @@ const HEADER_START_FILE_ENTRY: usize = 10;
 const HEADER_NAME_BYTE: usize = 20;
 const HEADER_FILE_ENTRY_BYTE: usize = 4 + 4 + HEADER_NAME_BYTE + 2;
 
-pub const PAGE_RECORD_BYTE: usize = 20;
+pub const PAGE_RECORD_BYTE: usize = 128;
 const PAGE_NEXT_PAGE_ID: usize = 0;
 const PAGE_PREV_PAGE_ID: usize = 4;
 const PAGE_RECORD_START: usize = 10;
@@ -51,6 +51,9 @@ impl RecordId {
     }
 }
 
+const HEADER_MAX_ENTRY: usize = 10;
+
+// FIXME: HeaderPage can be replaced as ordinary Relation table.
 pub struct HeaderPage<'a> { page: &'a mut Page }
 
 impl<'a> HeaderPage<'a> {
@@ -60,7 +63,7 @@ impl<'a> HeaderPage<'a> {
 
     fn new_entry(&mut self) -> Res<EntryNo> {
         let mut eno = 0;
-        while eno < 10 {
+        while eno < HEADER_MAX_ENTRY {
             let page_id = self.get_head_free_page_id(EntryNo::new(eno))?;
             if page_id == 0 {
                 return Ok(EntryNo::new(eno));
@@ -86,6 +89,7 @@ impl<'a> HeaderPage<'a> {
         Ok(page_id)
     }
 
+    // FIXME: full_page_id is unnecessary
     fn pos_head_full_page_id(&self, entry_no: EntryNo) -> usize {
         self.pos_head_free_page_id(entry_no) + 4
     }
@@ -115,6 +119,27 @@ impl<'a> HeaderPage<'a> {
         Ok(())
     }
 
+    pub fn get_name(&self, entry_no: EntryNo) -> Res<Option<String>> {
+        let position = self.pos_name(entry_no);
+        let a = self.page.get_varchar_value(position, HEADER_NAME_BYTE)?;
+        Ok(Some(a))
+    }
+
+    pub fn find(&mut self, name: &str) -> Res<Option<EntryNo>> {
+        if name.len() > HEADER_NAME_BYTE {
+            return Err(Error::InvalidArg{ msg: format!("HeaderPage::find : name length must be less than {}", HEADER_NAME_BYTE)});
+        }
+        for eno in 0..HEADER_MAX_ENTRY {
+            let entry_no = EntryNo::new(eno);
+            if let Some(eno_name) = self.get_name(entry_no)? {
+                let page_id = self.get_head_free_page_id(entry_no)?;
+                if name == &eno_name[..name.len()] && page_id > 0 {
+                    return Ok(Some(entry_no))
+                }
+            }
+        }
+        Ok(None)
+    }
     // pub fn get_name(&mut self, entry_no: EntryNo) -> Res<String> {
     //     let position = self.pos_name(entry_no);
     //     let name = self.page.get_varchar_value(position, 20)?;

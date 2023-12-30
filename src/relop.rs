@@ -1,4 +1,3 @@
-pub mod relmgr;
 pub mod schema;
 pub mod record;
 pub mod file_scan;
@@ -6,11 +5,12 @@ pub mod projection;
 
 use std::sync::{Arc, Mutex};
 
-pub use relmgr::*;
 pub use schema::*;
 pub use record::*;
 pub use file_scan::*;
 pub use projection::*;
+
+use crate::filemgr::PAGE_RECORD_BYTE;
 
 use super::types::Res;
 use super::diskmgr::DiskMgr;
@@ -25,7 +25,12 @@ pub fn run_relmgr() -> Res<()> {
     let mut filemgr = HFileMgr::build(bufmgr)?;
 
     let mut file0 = filemgr.create_file("file0")?;
-    let data = [4, 0, 0, 0, 75, 76, 77, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let mut data = [0; PAGE_RECORD_BYTE];
+    // let d = [4, 0, 0, 0, 75, 76, 77, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    data[0] = 4;
+    data[4] = 75;
+    data[5] = 76;
+    data[6] = 77;
     for i in 0..15 {
         let rid = file0.insert_record(data)?;
         println!("insert {}, {}", i, rid);

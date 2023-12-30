@@ -58,13 +58,21 @@ impl<'a> Record<'a> {
     pub fn set_varchar_field(&mut self ,fno: usize, v: &String) -> Res<()> {
         match self.schema.get_type(fno) {
             Some(AttributeType::Varchar(n)) => {
+                if *n < v.len() + 1 {
+                    return Err(Error::InvalidArg {
+                        msg: format!("Record::set_varchar_field: field length ({}) is not enough for given string(\"{}\")",
+                                    n, v
+                    )
+                    })
+                }
                 let offset = *self.schema.get_offset(fno).unwrap();
                 let xs = v.as_bytes();
-                self.data[offset..offset+n].copy_from_slice(xs);
+                self.data[offset..offset+xs.len()].copy_from_slice(xs);
+                self.data[offset+xs.len()] = b'\0';
                 Ok(())
             }
             _ => Err(Error::InvalidArg { 
-                    msg: format!("Record::set_int_field: field is not int. fno={}", fno) })
+                    msg: format!("Record::set_varchar_field: field is not varchar. fno={}", fno) })
         }
     }
 

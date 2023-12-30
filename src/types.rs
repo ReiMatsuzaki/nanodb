@@ -59,6 +59,7 @@ pub enum Error {
     InvalidArg{ msg: String},
     NoFreePage,
     PageNotFound { page_id: PageId, msg: String },
+    RelationNotFound { name: String, }
     // EmptyRecord,
     // PageMismatch,
     // RecordTypeMismatch,

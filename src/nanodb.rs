@@ -65,8 +65,9 @@ impl NanoDb {
             SqlStatement::InsertInto(s) => self.execute_insert_into(s),
             SqlStatement::Select(s) => {
                 let mut it = self.execute_select(s)?;
+                log::info!("select result:");
                 while let Some((rid, rec)) = it.get_next()? {
-                    log::info!("{}: {}", rid, rec);
+                    println!("{}: {}", rid, rec);
                 }
                 Ok(())
             }
@@ -96,6 +97,8 @@ impl NanoDb {
     // }
 
     fn insert_into_catalog_attr_type(&mut self, attr_name: &str, rel_name: &str, ty: DataType, fno: usize) -> Res<()> {
+        log::debug!("insert_into_catalog_attr_type(attr_name={}, rel_name={}, fno={})",
+                attr_name, rel_name, fno);
         let mut rec: Record = Record::new_zero(&self.catalog_attr_cat_schema);
         rec.set_varchar_field(0, &attr_name.to_string())?;
         rec.set_varchar_field(1, &rel_name.to_string())?;
@@ -112,7 +115,7 @@ impl NanoDb {
     }
 
     fn execute_insert_into(&mut self, statement: InsertIntoStatement) -> Res<()> {
-        log::info!("");
+        log::debug!("execute_insert_into");
         let (mut file, schema) = self.open_relation(statement.table_name.as_str())?;
         if schema.len() != statement.values.len() {
             return Err(Error::InvalidArg { 
@@ -122,7 +125,8 @@ impl NanoDb {
             )
             })
         }
-        
+
+        log::debug!("execute_insert_into: add values to record");
         let mut rec: Record = Record::new_zero(&schema);
         for fno in 0..schema.len() {
             match statement.values.get(fno).unwrap() {
@@ -134,11 +138,14 @@ impl NanoDb {
                 }
             }
         }
+
+        log::debug!("execute_insert_into: add record");
         file.insert_record(*rec.get_data())?;
         Ok(())
     }
 
     fn execute_select(&mut self, statement: SelectStatement) -> Res<Projection> {
+        log::debug!("execute_select");
         let (file, schema) = self.open_relation(&statement.table_name)?;
         // println!("schema: {:?}", schema);
         let file = Arc::new(Mutex::new(file));
@@ -157,6 +164,7 @@ impl NanoDb {
     }
 
     fn open_relation(&mut self, name: &str) -> Res<(HeapFile, Schema)> {
+        log::debug!("open_relation");
         // let file = self.filemgr.open(CATALOG_ATTRIBUTE_CAT)?;
         let a = self.catalog_attr_cat_file.clone();
         let s = self.catalog_attr_cat_schema.clone();
@@ -168,12 +176,16 @@ impl NanoDb {
             let type_name = rec.get_varchar_field(2).unwrap();
             let type_size = rec.get_int_field(3).unwrap() as usize;
             let position = rec.get_int_field(4).unwrap() as usize;
-            if rname == name {
+            if rname.eq(name) {
                 let attr_type = AttributeType::decode(type_name.as_str(), type_size).unwrap();
                 buf.push((aname, attr_type, position));
             }
         }
-        let n = buf.iter().map(|x| x.2).max().unwrap();
+        if buf.len() == 0 {
+            return Err(Error::RelationNotFound { name: name.to_string() })
+        }
+
+        let n = buf.len();
         let mut xs = Vec::new();
         for i in 0..n {
             let x = buf.iter()
@@ -199,23 +211,25 @@ pub fn run_nanodb() -> Res<()> {
         table_name: "student".to_string(),
         columns: vec![
             ColumnDef { name: "id".to_string(), data_type: DataType::Int},
-            ColumnDef { name: "name".to_string(), data_type: DataType::Varchar(5)},
+            ColumnDef { name: "name".to_string(), data_type: DataType::Varchar(10)},
             ColumnDef { name: "score".to_string(), data_type: DataType::Int},
         ]};
     let statement = SqlStatement::CreateTable(statement);
     nanodb.execute_statement(statement)?;
 
     log::info!("insert into");
-    let statement = InsertIntoStatement { 
-        table_name: "student".to_string(),
-        values: vec![
-            Value::Int(3),
-            Value::String("MyName".to_string()),
-            Value::Int(89),
-        ]
-    };
-    let statement = SqlStatement::InsertInto(statement);
-    nanodb.execute_statement(statement)?;
+    for i in 0..10 {
+        let statement = InsertIntoStatement { 
+            table_name: "student".to_string(),
+            values: vec![
+                Value::Int(3+i),
+                Value::String(format!("MyName{}", i)),
+                Value::Int(80+i),
+            ]
+        };
+        let statement = SqlStatement::InsertInto(statement);
+        nanodb.execute_statement(statement)?;
+    }
 
     log::info!("select catalog");
     let statement = SelectStatement {
@@ -224,6 +238,15 @@ pub fn run_nanodb() -> Res<()> {
     };
     let statement = SqlStatement::Select(statement);
     nanodb.execute_statement(statement)?;
+
+    log::info!("select student table");
+    let statement = SelectStatement {
+        table_name: "student".to_string(),
+        columns: vec!["id".to_string(), "score".to_string()],
+    };
+    let statement = SqlStatement::Select(statement);
+    nanodb.execute_statement(statement)?;
+
 
     std::fs::remove_file(name).unwrap();
     Ok(())

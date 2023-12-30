@@ -32,6 +32,11 @@ fn main() {
     } else if i==6 {
         run_relmgr_projection().unwrap();
     } else if i==10 {
-        run_nanodb().unwrap();
+        match run_nanodb() {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("error:\n{:?}", e);
+            }
+        }
     }
 }

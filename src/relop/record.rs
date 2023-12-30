@@ -6,6 +6,7 @@ use super::schema::Schema;
 use super::super::filemgr::PAGE_RECORD_BYTE;
 use super::super::converter::get_int_value;
 
+// FIXME: rename as Tuple
 pub struct Record<'a> {
     // FIXME: use reference
     data: [u8; PAGE_RECORD_BYTE],
@@ -80,10 +81,15 @@ impl<'a> Record<'a> {
         match self.schema.get_type(fno) {
             Some(AttributeType::Varchar(n)) => {
                 let offset = *self.schema.get_offset(fno)?;
-                let xs = &self.data[offset..offset+n];
-                let vec = Vec::from(xs);
-                let a = String::from_utf8(vec).unwrap();
-                Some(a)
+                for i in offset..offset+n {
+                    if self.data[i] == b'\0' {
+                        let xs = &self.data[offset..i];
+                        let vec = Vec::from(xs);
+                        let a = String::from_utf8(vec).unwrap();
+                        return Some(a)
+                    }
+                }
+                None
             }
             _ => None
         }
@@ -119,5 +125,31 @@ impl<'a> std::fmt::Display for Record<'a> {
             write!(f, "{}({}): {}", name, ty, v)?
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_record() {
+        let schema = Schema::build(vec![
+            ("id".to_string(), AttributeType::Int),
+            ("name".to_string(), AttributeType::Varchar(10)),
+            ("qty".to_string(), AttributeType::Int),
+        ]);
+        let mut record = Record::new_zero(&schema);
+
+        let id = 5;
+        let name = "MyName".to_string();
+        let qty = 6;
+        record.set_int_field(0, id).unwrap();
+        record.set_varchar_field(1, &name).unwrap();
+        record.set_int_field(2, qty).unwrap();
+
+        assert_eq!(id, record.get_int_field(0).unwrap());
+        assert_eq!(name, record.get_varchar_field(1).unwrap());
+        assert_eq!(qty, record.get_int_field(2).unwrap());
     }
 }

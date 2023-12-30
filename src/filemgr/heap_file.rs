@@ -30,9 +30,7 @@ impl HeapFile {
     pub fn get_entry_no(&self) -> EntryNo { self.entry_no }
 
     pub fn insert_record(&mut self, data: [u8; PAGE_RECORD_BYTE]) -> Res<RecordId> {
-        let page_id = self.with_header_page(|h| {
-            h.get_head_free_page_id(self.entry_no)
-        })?;
+        let page_id = self.get_header_free_page_id()?;
         self.insert_record_page(page_id, data)
     }
 
@@ -101,4 +99,12 @@ impl HeapFile {
             Ok(())
         })
     }
+
+    pub fn get_header_free_page_id(&self) -> Res<PageId> {
+        let page_id = self.with_header_page(|h| {
+            h.get_head_free_page_id(self.entry_no)
+        })?;
+        Ok(page_id)
+    }
+
 }

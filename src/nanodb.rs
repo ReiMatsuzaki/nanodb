@@ -84,18 +84,6 @@ impl NanoDb {
         Ok(heap_file)
     }
 
-    // fn insert_into_schema(&mut self, schema: &Schema, rel_name: &str) -> Res<()> {
-    //     for fno in 0..schema.len() {
-    //         let attr_name = schema.get_name(fno).unwrap();
-    //         let ty = match schema.get_type(fno).unwrap() {
-    //             AttributeType::Int => DataType::Int,
-    //             AttributeType::Varchar(n) => DataType::Varchar(*n),
-    //         };
-    //         self.insert_into_catalog_attr_type(attr_name, rel_name, ty, fno)?;
-    //     }
-    //     Ok(())
-    // }
-
     fn insert_into_catalog_attr_type(&mut self, attr_name: &str, rel_name: &str, ty: DataType, fno: usize) -> Res<()> {
         log::debug!("insert_into_catalog_attr_type(attr_name={}, rel_name={}, fno={})",
                 attr_name, rel_name, fno);

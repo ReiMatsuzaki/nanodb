@@ -2,6 +2,7 @@ pub mod schema;
 pub mod record;
 pub mod file_scan;
 pub mod projection;
+pub mod merge_sort;
 
 use std::sync::{Arc, Mutex};
 
@@ -9,6 +10,7 @@ pub use schema::*;
 pub use record::*;
 pub use file_scan::*;
 pub use projection::*;
+pub use merge_sort::*;
 
 use crate::filemgr::PAGE_RECORD_BYTE;
 
@@ -27,7 +29,7 @@ pub fn run_relmgr() -> Res<()> {
     let mut file0 = filemgr.create_file("file0")?;
     let mut data = [0; PAGE_RECORD_BYTE];
     // let d = [4, 0, 0, 0, 75, 76, 77, 8, 9, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    data[0] = 4;
+    data[3] = 4;
     data[4] = 75;
     data[5] = 76;
     data[6] = 77;
@@ -38,7 +40,7 @@ pub fn run_relmgr() -> Res<()> {
 
     let schema = Schema::build(vec![
         ("id".to_string(), AttributeType::Int),
-        ("name".to_string(), AttributeType::Varchar(3)),
+        ("name".to_string(), AttributeType::Varchar(4)),
     ]);
 
     let file0 = Arc::new(Mutex::new(file0));
@@ -70,7 +72,7 @@ pub fn run_relmgr_projection() -> Res<()> {
     let mut file0 = filemgr.create_file("file0")?;
     let schema = Schema::build(vec![
         ("id".to_string(), AttributeType::Int),
-        ("name".to_string(), AttributeType::Varchar(3)),
+        ("name".to_string(), AttributeType::Varchar(4)),
     ]);
     let mut rec = Record::new_zero(&schema);
     rec.set_int_field(0, 4)?;

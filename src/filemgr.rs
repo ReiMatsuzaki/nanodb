@@ -278,7 +278,7 @@ impl<'a> RecordPage<'a> {
     }
 
     pub fn swap_slot(&mut self, i: SlotNo, j: SlotNo) -> Res<()> {
-        log::debug!("RecordPage::swap_slot");
+        log::trace!("RecordPage::swap_slot");
         self.check_slot_no(i)?;
         self.check_slot_no(j)?;
 
@@ -303,9 +303,10 @@ impl<'a> RecordPage<'a> {
     }
 
     pub fn free_all(&mut self) -> Res<()> {
-        for slot_no in 0..self.capasity() {
+        for slot_no in 0..self.get_num_slots()? {
             self.set_slot_bit(SlotNo::new(slot_no), 0)?
         }
+        self.set_num_slots(0)?;
         Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{diskmgr::DiskMgr, bufmgr::BufMgr, filemgr::{HFileMgr, SlotNo, RecordId}, relop::{AttributeType, Record, FileScan, FileScanOnPage}};
+use crate::{diskmgr::DiskMgr, bufmgr::BufMgr, filemgr::{HFileMgr, SlotNo, RecordId, RecordPage, PAGE_RECORD_BYTE}, relop::{AttributeType, Record, FileScan, FileScanOnPage}};
 use crate::types::*;
 use crate::filemgr::HeapFile;
 use super::Schema;
@@ -33,6 +33,7 @@ impl Relation {
     }
 
     pub fn truncate(&mut self) -> Res<()> {
+        log::trace!("truncate");
         let f = self.file.lock().unwrap();
         f.with_record_pages(|_pid, p| {
             p.free_all()
@@ -40,9 +41,13 @@ impl Relation {
         Ok(())
     }
 
-    pub fn insert_record(&self, rec: Record) -> Res<()> {
+    // pub fn insert_record(&self, rec: Record) -> Res<()> {
+    //     self.insert_bytes(*rec.get_data())
+    // }
+
+    pub fn insert_bytes(&self, data: [u8; PAGE_RECORD_BYTE]) -> Res<()> {
         let mut f = self.file.lock().unwrap();
-        f.insert_record(*rec.get_data())?;
+        f.insert_record(data)?;
         Ok(())
     }
 }
@@ -61,6 +66,7 @@ impl MergeSort {
     }
 
     pub fn sort(&mut self) -> Res<()> {
+        log::debug!("sort");
         // FIXME: build pids
         let mut pid = {
             let hf = self.rel.arc_mutex_file();
@@ -92,15 +98,15 @@ impl MergeSort {
         log::debug!("pass_0");
         let hf = self.rel.arc_mutex_file();
         let hf = hf.lock().unwrap();
-        hf.with_record_pages(|pid, page| {
+        hf.with_record_pages(|_pid, page| {
             let num = page.get_num_slots()?;
             for i in 1..num {
                 for j in (1..=i).rev() {
                     let jm1 = SlotNo::new(j-1);
                     let j = SlotNo::new(j);
                     // compare (j-1) and (j)
-                    let xj = self.get_key(j, pid)?;
-                    let xjm1 = self.get_key(jm1, pid)?;
+                    let xj = self.get_key(j, page)?;
+                    let xjm1 = self.get_key(jm1, page)?;
                     if xjm1 > xj {
                         page.swap_slot(jm1, j)?;
                     }
@@ -112,6 +118,7 @@ impl MergeSort {
     }
 
     fn pass_1(&mut self, pid0: PageId, pid1: PageId) -> Res<()> {
+        log::debug!("pass_1");
         let file = self.rel.arc_mutex_file();
         let schema = self.rel.get_schema();
         // let hf = file.lock().unwrap();
@@ -121,6 +128,7 @@ impl MergeSort {
         // FIXME: use page
         let mut recs = Vec::new();
 
+        log::trace!("pass_1: start merge sort loop");
         loop {
             let rec = match (scan0.peer_next_rid()?, scan1.peer_next_rid()?) {
                 (Some(rid0), None) => {
@@ -134,6 +142,7 @@ impl MergeSort {
                 (Some(rid0), Some(rid1)) => {
                     let rec0 = self.rel.get_record(rid0)?;
                     let rec1 = self.rel.get_record(rid1)?;
+                    // log::debug!("{} : {}", rec0, rec1);
                     let key0 = rec0.get_int_field(self.key_fno).unwrap();
                     let key1 = rec1.get_int_field(self.key_fno).unwrap();
                     if key0 < key1 {
@@ -150,21 +159,24 @@ impl MergeSort {
             recs.push(*d);
         }
 
+        log::trace!("pass_1: truncate existing data");
         self.rel.truncate()?;
+
+        log::trace!("pass_1: insert sorted record");
         for data in recs {
-            let rec = Record::new(data, self.rel.get_schema());
-            self.rel.insert_record(rec)?;
+            self.rel.insert_bytes(data)?
         }
 
-        todo!()
+        Ok(())
     }
 
-    fn get_key(&self, slot_no: SlotNo, pid: PageId) -> Res<i32> {
-        // FIXME: support deleted line
-        let rec = self.rel.get_record(RecordId::new(pid, slot_no))?;
+    fn get_key(&self, slot_no: SlotNo, page: &mut RecordPage) -> Res<i32> {
+        let a = page.get_slot(slot_no)?;
+        let rec = Record::new(a, self.rel.get_schema());
         let v = rec.get_int_field(self.key_fno).unwrap();
         Ok(v)
     }
+
 }
 
 pub fn run_merge_sort() -> Res<()> {
@@ -208,7 +220,7 @@ pub fn run_merge_sort() -> Res<()> {
     log::info!("print after");
     FileScan::print(file.clone(), schema.clone())?;
 
-    assert_eq!(2, 1+2);
+    std::fs::remove_file(name).unwrap();
     Ok(())
 }
 

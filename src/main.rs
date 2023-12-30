@@ -19,7 +19,7 @@ use crate::nanodb::run_nanodb;
 fn main() {
     env_logger::init();
 
-    let i = 10;
+    let i = 7;
     println!("nanodb start");
     if i == 0 {
         run_diskmgr().unwrap();

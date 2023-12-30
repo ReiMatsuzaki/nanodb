@@ -114,6 +114,24 @@ where F: FnOnce(&mut RecordPage) -> Res<T> {
     res
 }
 
+pub fn with_records_pages<F>(f: F, first_page_id: PageId, mutex: &Arc<Mutex<BufMgr>>) -> Res<()> 
+where F: FnMut(PageId, &mut RecordPage) -> Res<()> {
+    let mut pid = first_page_id;
+    let mut f = f;
+    while pid > 0 {
+        let mut bufmgr = mutex.lock().unwrap();
+        let page = bufmgr.pin_page(pid)?;
+        let mut page = RecordPage::new(page);
+
+        let old_pid = pid;
+        pid = page.get_next_page_id()?;
+
+        f(old_pid, &mut page)?;
+        bufmgr.unpin_page(old_pid)?;
+    }
+    Ok(())
+}
+
 // pub fn with_two_record_pages<F, T>(f: F, page_id_0: PageId, page_id_1: PageId, mutex: &Arc<Mutex<BufMgr>>) -> Res<T>
 // where F: FnOnce(&mut RecordPage, &mut RecordPage) -> Res<T> {
 //     let mut bufmgr = mutex.lock().unwrap();
